@@ -33,28 +33,77 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: SafeArea(child: Scaffold(
-        body: GameWidget<Engine>.controlled(
-          gameFactory: Engine.new,
-          initialActiveOverlays: const ["Menu"],
-          overlayBuilderMap: {
-            "Menu": (_, engine) => Menu(engine: engine),
-            "Game": (_, engine) => Game(engine: engine),
-          },
-        ),
-      )),
+      title: 'Amber and Ice',
+      theme: ThemeData(useMaterial3: true),
+      home: SafeArea(child: Scaffold(body: GameWidget<MyGame>.controlled(
+        gameFactory: MyGame.new,
+        initialActiveOverlays: const ["Menu"],
+        overlayBuilderMap: {
+          "Menu": (_, myGame) => OverlayMenu(myGame: myGame),
+          "Game": (_, myGame) => OverlayGame(myGame: myGame),
+          "Zoom": (_, myGame) => OverlayZoom(myGame: myGame),
+        },
+      ))),
     );
   }
 }
 
-class Engine extends FlameGame with KeyboardEvents {
-  late Scene scene;
-  late CameraComponent cameraComponent;
+class OverlayMenu extends StatelessWidget {
+  final MyGame myGame;
+  const OverlayMenu({super.key, required this.myGame});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(alignment: Alignment.center, child: ElevatedButton(
+      onPressed: myGame.play,
+      child: const Icon(Icons.play_arrow, color: Colors.green, size: 100),
+    ));
+  }
+}
+
+class OverlayGame extends StatelessWidget {
+  final MyGame myGame;
+  const OverlayGame({super.key, required this.myGame});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(padding: const EdgeInsets.all(30), child: Row(children: [
+      ElevatedButton(
+        onPressed: myGame.restart,
+        child: const Icon(Icons.replay, color: Colors.green, size: 50),
+      ),
+      const SizedBox(width: 30),
+      ElevatedButton(
+        onPressed: myGame.zoom,
+        child: const Icon(Icons.zoom_out, color: Colors.green, size: 50),
+      ),
+      const SizedBox(width: 30),
+      ElevatedButton(
+        onPressed: myGame.undo,
+        child: const Icon(Icons.undo, color: Colors.green, size: 50),
+      ),
+    ]));
+  }
+}
+
+class OverlayZoom extends StatelessWidget {
+  final MyGame myGame;
+  const OverlayZoom({super.key, required this.myGame});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(padding: const EdgeInsets.all(30), child:
+    ElevatedButton(
+      onPressed: myGame.zoom,
+      child: const Icon(Icons.zoom_in, color: Colors.green, size: 50),
+    ));
+  }
+}
+
+class MyGame extends FlameGame with KeyboardEvents {
+  late MyWorld myWorld;
+  late CameraComponent myCamera;
+  bool zooming = false;
 
   @override
   Color backgroundColor() => Colors.black;
@@ -62,9 +111,9 @@ class Engine extends FlameGame with KeyboardEvents {
   @override
   Future<void> onLoad() async {
     await images.loadAllImages();
-    scene = Scene();
-    cameraComponent = CameraComponent(world: scene);
-    addAll([scene, cameraComponent]);
+    myWorld = MyWorld();
+    myCamera = CameraComponent(world: myWorld);
+    addAll([myWorld, myCamera]);
     FlameAudio.bgm.initialize();
   }
 
@@ -72,16 +121,16 @@ class Engine extends FlameGame with KeyboardEvents {
   KeyEventResult onKeyEvent(RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
     if (keysPressed.contains(LogicalKeyboardKey.keyW) ||
         keysPressed.contains(LogicalKeyboardKey.arrowUp)) {
-      scene.movePlayer(0, -1);
+      myWorld.movePlayer(0, -1);
     } else if (keysPressed.contains(LogicalKeyboardKey.keyA) ||
         keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
-      scene.movePlayer(-1, 0);
+      myWorld.movePlayer(-1, 0);
     } else if (keysPressed.contains(LogicalKeyboardKey.keyS) ||
         keysPressed.contains(LogicalKeyboardKey.arrowDown)) {
-      scene.movePlayer(0, 1);
+      myWorld.movePlayer(0, 1);
     } else if (keysPressed.contains(LogicalKeyboardKey.keyD) ||
         keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
-      scene.movePlayer(1, 0);
+      myWorld.movePlayer(1, 0);
     }
     return KeyEventResult.handled;
   }
@@ -90,82 +139,87 @@ class Engine extends FlameGame with KeyboardEvents {
     FlameAudio.play("button.ogg");
     FlameAudio.bgm.stop();
     FlameAudio.bgm.play('bgm.ogg');
-    scene.removeAll(scene.stars);
-    scene.stars.clear();
-    scene.unloadLevel(1);
+    myWorld.removeAll(myWorld.stars);
+    myWorld.stars.clear();
+    myWorld.nextLevel = 1;
+    myWorld.unloadLevel();
     overlays.remove("Menu");
     overlays.add("Game");
+    myWorld.win = false;
   }
 
-  void replay() {
+  void restart() {
     FlameAudio.play("button.ogg");
-    scene.unloadLevel(scene.level);
+    if (zooming) return;
+    myWorld.nextLevel = myWorld.level;
+    myWorld.unloadLevel();
   }
 
   void menu() {
-    scene.unloadLevel(0);
+    FlameAudio.play("button.ogg");
+    myWorld.nextLevel = 0;
+    myWorld.unloadLevel();
     overlays.remove("Game");
     overlays.add("Menu");
   }
-}
 
-class Menu extends StatelessWidget {
-  final Engine engine;
-  const Menu({super.key, required this.engine});
+  void zoom() {
+    FlameAudio.play("button.ogg");
+    if (myWorld.animating) return;
+    zooming = !zooming;
+    overlays.remove(zooming ? "Game" : "Zoom");
+    overlays.add(zooming ? "Zoom" : "Game");
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      child: ElevatedButton(
-        onPressed: engine.play,
-        child: const Icon(Icons.play_arrow, color: Colors.green, size: 100),
-      ),
-    );
+  void undo() {
+    FlameAudio.play("button.ogg");
+    if (zooming || myWorld.animating) return;
+    if (myWorld.player.previousX.length > 1) {
+      myWorld.player.undo();
+      for (Water water in myWorld.waters) water.undo();
+      for (Robot robot in myWorld.robots) robot.undo();
+      for (Floor floor in myWorld.floors) {
+        if (floor.previousState.last == 1) {
+          myWorld.blocks.add(Block(floor._x, floor._y, BlockType.ice, -1));
+          myWorld.add(myWorld.blocks.last);
+          myWorld.remove(floor);
+          myWorld.floors.remove(floor);
+          break;
+        } else {
+          floor.previousState.removeLast();
+        }
+      }
+    }
   }
 }
 
-class Game extends StatelessWidget {
-  final Engine engine;
-  const Game({super.key, required this.engine});
+class Item<T> extends SpriteAnimationGroupComponent<T> with HasGameRef<MyGame> {
+  double timer = 0.5, start = -1000, stop = -1000, yOffset = 0;
+  int _x, _y, _type, priorityOffset = 0;
+  bool sent = true;
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(padding: const EdgeInsets.all(30), child: ElevatedButton(
-      onPressed: engine.replay,
-      child: const Icon(Icons.replay, color: Colors.green, size: 50),
-    ));
-  }
-}
-
-class Item<T> extends SpriteAnimationGroupComponent<T> with HasGameRef<Engine> {
-  late int idx, idy, idtype;
-  double timer = 0;
-  double start = -1000;
-  double stop = -1000;
-  int state = -1;
-  int priorityOffset = 0;
-  double yOffset = 0;
-  Item(this.idx, this.idy, this.idtype) {
+  Item(this._x, this._y, this._type, int delay) {
     anchor = Anchor.bottomCenter;
     y = -1000;
+    fadeIn(delay);
   }
 
   void fadeIn(int delay) {
+    if (delay < 0) return;
     Future.delayed(Duration(milliseconds: delay), () {
-      state = 0;
+      start = game.myCamera.visibleWorldRect.top - 64;
+      stop = _y * 48;
+      sent = false;
       timer = 0;
-      start = -1000;
-      stop = idy * 48;
     });
   }
 
   void fadeOut(int delay) {
     Future.delayed(Duration(milliseconds: delay), () {
-      state = 1;
+      start = _y * 48;
+      stop = game.myCamera.visibleWorldRect.top - 64;
+      sent = false;
       timer = 0;
-      start = y;
-      stop = -1000;
     });
   }
 
@@ -183,51 +237,69 @@ class Item<T> extends SpriteAnimationGroupComponent<T> with HasGameRef<Engine> {
   @override
   void update(double dt) {
     super.update(dt);
-    timer = min(1, timer + dt);
-    x = idx * 64;
-    y = yOffset + (game.scene.animating ? lerpDouble(start, stop, timer)! : idy * 48);
-    priority = idy * 2 + priorityOffset;
+    timer = min(timer + dt, 0.25);
+    if (timer == 0.25 && sent == false) {
+      sent = true;
+      game.myWorld.counter--;
+    }
+    x = _x * 64;
+    y = yOffset + (game.myWorld.animating ? lerpDouble(start, stop, 4 * timer)! : _y * 48);
+    priority = _y * 2 + priorityOffset;
   }
 }
 
 class Robot extends Item<RobotState> {
-  Robot(idx, idy, z, type) : super(idx, idy, type.index) { fadeIn(z); }
-  RobotType get type => RobotType.values[idtype];
+  RobotType get type => RobotType.values[_type];
+  List<int> previousX = List.empty(growable: true);
+  List<int> previousY = List.empty(growable: true);
+
+  Robot(int x, int y, RobotType type, int delay) : super(x, y, type.index, delay) { record(); }
+
+  void record() {
+    previousX.add(_x);
+    previousY.add(_y);
+    if (previousX.length > 3) {
+      previousX.removeAt(0);
+      previousY.removeAt(0);
+    }
+  }
+
+  void undo() {
+    previousX.removeLast();
+    previousY.removeLast();
+    _x = previousX.last;
+    _y = previousY.last;
+  }
 
   @override
   Future<void> onLoad() async {
     animations = {
-      RobotState.empty: loadAnimation("${idtype}_0.png", 1, Vector2(160, 240)),
-      RobotState.wall: loadAnimation("${idtype}_1.png", 1, Vector2(160, 240)),
-      RobotState.robot: loadAnimation("${idtype}_2.png", 1, Vector2(160, 240)),
+      RobotState.empty: loadAnimation("${_type}_0.png", 1, Vector2(160, 240)),
+      RobotState.wall: loadAnimation("${_type}_1.png", 1, Vector2(160, 240)),
+      RobotState.robot: loadAnimation("${_type}_2.png", 1, Vector2(160, 240)),
     };
     current = RobotState.empty;
     size = Vector2(64, 96);
     priorityOffset = 1;
-    super.onLoad();
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    Block? block = game.scene.checkBlock(idx + 1, idy);
-    if (idx + 1 == game.scene.width) {
-      current = RobotState.empty;
-    } else if (game.scene.checkPlayer(idx + 1, idy)) {
-      current = RobotState.robot;
-    } else if (game.scene.checkRobot(idx + 1, idy) != null) {
-      current = RobotState.robot;
-    } else if (block != null && block.type != BlockType.wall) {
-      current = RobotState.wall;
-    } else {
-      current = RobotState.empty;
-    }
+    int i = 0;
+    Block? b = game.myWorld.getBlockAt(_x + 1, _y);
+    if (_x + 1 == game.myWorld.width) i = 0;
+    else if (game.myWorld.player._x == _x + 1 && game.myWorld.player._y == _y) i = 2;
+    else if (game.myWorld.getRobotAt(_x + 1, _y) != null) i = 2;
+    else if (b != null && b.type != BlockType.wall) i = 1;
+    current = RobotState.values[i];
   }
 }
 
 class Block extends Item<BlockState> {
-  Block(idx, idy, z, type) : super(idx, idy, type.index) { fadeIn(z); }
-  BlockType get type => BlockType.values[idtype];
+  BlockType get type => BlockType.values[_type];
+
+  Block(int x, int y, BlockType type, int delay) : super(x, y, type.index, delay);
 
   @override
   Future<void> onLoad() async {
@@ -244,21 +316,25 @@ class Block extends Item<BlockState> {
 
   @override
   void update(double dt) {
-    if (type == BlockType.wall) return;
     super.update(dt);
-    Block? block = game.scene.checkBlock(idx + 1, idy);
-    if (idx + 1 == game.scene.width) {
-      current = BlockState.empty;
-    } else if (block != null && block.type != BlockType.wall) {
-      current = BlockState.wall;
-    } else {
-      current = BlockState.empty;
-    }
+    if (type == BlockType.wall) return;
+    int i = 0;
+    Block? b = game.myWorld.getBlockAt(_x + 1, _y);
+    if (_x + 1 == game.myWorld.width) i = 0;
+    else if (b != null && b.type != BlockType.wall) i = 1;
+    current = BlockState.values[i];
   }
 }
 
 class Floor extends Item<FloorState> {
-  Floor(idx, idy, z) : super(idx, idy, 0) { fadeIn(z); }
+  List<int> previousState = List.empty(growable: true);
+
+  Floor(int x, int y, int delay, int state) : super(x, y, 0, delay) { record(state); }
+
+  void record(int state) {
+    previousState.add(state);
+    if (previousState.length > 3) previousState.removeAt(0);
+  }
 
   @override
   Future<void> onLoad() async {
@@ -284,36 +360,44 @@ class Floor extends Item<FloorState> {
   @override
   void update(double dt) {
     super.update(dt);
-    int offset = 4;
-    if (game.scene.checkPlayer(idx, idy)) {
-      offset = 0;
-    } else if (game.scene.checkRobot(idx, idy) != null) {
-      offset = 0;
-    } else if (game.scene.checkFinish(idx, idy)) {
-      offset = 8;
-    }
-    Block? block = game.scene.checkBlock(idx + 1, idy);
-    if (idx + 1 == game.scene.width) {
-      current = FloorState.values[offset + 0];
-    } else if (block != null && block.type != BlockType.wall) {
-      current = FloorState.values[offset + 1];
-    } else if (game.scene.checkRobot(idx + 1, idy) != null) {
-      current = FloorState.values[offset + 2];
-    } else if (game.scene.checkPlayer(idx + 1, idy)) {
-      current = FloorState.values[offset + 2];
-    } else if (game.scene.checkFinish(idx + 1, idy)) {
-      current = FloorState.values[offset + 3];
-    } else {
-      current = FloorState.values[offset + 0];
-    }
+    int i = 4;
+    if (game.myWorld.player._x == _x && game.myWorld.player._y == _y) i = 0;
+    else if (game.myWorld.getRobotAt(_x, _y) != null) i = 0;
+    else if (game.myWorld.finish._x == _x && game.myWorld.finish._y == _y) i = 8;
+    Block? b = game.myWorld.getBlockAt(_x + 1, _y);
+    if (_x + 1 == game.myWorld.width) i += 0;
+    else if (b != null && b.type != BlockType.wall) i += 1;
+    else if (game.myWorld.getRobotAt(_x + 1, _y) != null) i += 2;
+    else if (game.myWorld.player._x == _x + 1 && game.myWorld.player._y == _y) i += 2;
+    else if (game.myWorld.finish._x == _x + 1 && game.myWorld.finish._y == _y) i += 3;
+    current = FloorState.values[i];
   }
 }
 
 class Water extends Item<WaterState> {
-  Water(idx, idy, z) : super(idx, idy, WaterType.liquid.index) { fadeIn(z); }
-  WaterType get type => WaterType.values[idtype];
-  set type (WaterType value) => idtype = value.index;
-  int count = 0;
+  int temperature = 0;
+  WaterType get type => WaterType.values[_type];
+  set type (WaterType value) => _type = value.index;
+  List<WaterType> previousType = List.empty(growable: true);
+  List<int> previousTemperature = List.empty(growable: true);
+
+  Water(int x, int y, int delay) : super(x, y, 0, delay) { record(); }
+
+  void record() {
+    previousTemperature.add(temperature);
+    previousType.add(type);
+    if (previousTemperature.length > 3) {
+      previousTemperature.removeAt(0);
+      previousType.removeAt(0);
+    }
+  }
+
+  void undo() {
+    previousTemperature.removeLast();
+    previousType.removeLast();
+    temperature = previousTemperature.last;
+    type = previousType.last;
+  }
 
   @override
   Future<void> onLoad() async {
@@ -337,33 +421,21 @@ class Water extends Item<WaterState> {
   @override
   void update(double dt) {
     super.update(dt);
-    int offset = 0;
-    if (type == WaterType.frozen) {
-      if (game.scene.checkRobot(idx, idy) != null) {
-        offset = 6;
-      } else if (game.scene.checkPlayer(idx, idy)) {
-        offset = 6;
-      } else {
-        offset = 3;
-      }
-    }
-    Block? block = game.scene.checkBlock(idx + 1, idy);
-    if (idx + 1 == game.scene.width) {
-      current = WaterState.values[offset + 0];
-    } else if (block != null && block.type != BlockType.wall) {
-      current = WaterState.values[offset + 1];
-    } else if (game.scene.checkRobot(idx + 1, idy) != null) {
-      current = WaterState.values[offset + 2];
-    } else if (game.scene.checkPlayer(idx + 1, idy)) {
-      current = WaterState.values[offset + 2];
-    } else {
-      current = WaterState.values[offset + 0];
-    }
+    int i = 3;
+    if (type != WaterType.frozen) i = 0;
+    else if (game.myWorld.getRobotAt(_x, _y) != null) i = 6;
+    else if (game.myWorld.player._x == _x && game.myWorld.player._y == _y) i = 6;
+    Block? b = game.myWorld.getBlockAt(_x + 1, _y);
+    if (_x + 1 == game.myWorld.width) i += 0;
+    else if (b != null && b.type != BlockType.wall) i += 1;
+    else if (game.myWorld.getRobotAt(_x + 1, _y) != null) i += 2;
+    else if (game.myWorld.player._x == _x + 1 && game.myWorld.player._y == _y) i += 2;
+    current = WaterState.values[i];
   }
 }
 
 class Finish extends Item<FinishState> {
-  Finish(idx, idy, z) : super(idx, idy, 0) { fadeIn(z); }
+  Finish(int x, int y, int delay) : super(x, y, 0, delay);
 
   @override
   Future<void> onLoad() async {
@@ -380,24 +452,19 @@ class Finish extends Item<FinishState> {
   @override
   void update(double dt) {
     super.update(dt);
-    Block? block = game.scene.checkBlock(idx + 1, idy);
-    if (idx + 1 == game.scene.width) {
-      current = FinishState.empty;
-    } else if (block != null && block.type != BlockType.wall) {
-      current = FinishState.wall;
-    } else if (game.scene.checkRobot(idx + 1, idy) != null) {
-      current = FinishState.robot;
-    } else if (game.scene.checkPlayer(idx + 1, idy)) {
-      current = FinishState.robot;
-    } else {
-      current = FinishState.empty;
-    }
+    int i = 0;
+    Block? b = game.myWorld.getBlockAt(_x + 1, _y);
+    if (_x + 1 == game.myWorld.width) i = 0;
+    else if (b != null && b.type != BlockType.wall) i = 1;
+    else if (game.myWorld.getRobotAt(_x + 1, _y) != null) i = 2;
+    else if (game.myWorld.player._x == _x + 1 && game.myWorld.player._y == _y) i = 2;
+    current = FinishState.values[i];
   }
 }
 
-class Star extends SpriteComponent with HasGameRef<Engine> {
+class Star extends SpriteComponent with HasGameRef<MyGame> {
   Vector2 speed = Vector2.zero();
-  double baseSize = 1;
+  double ratio = 1;
 
   @override
   Future<void> onLoad() async {
@@ -408,23 +475,16 @@ class Star extends SpriteComponent with HasGameRef<Engine> {
 
   @override
   void update(double dt) {
-    position += speed * dt * 100;
-    Vector2 center = -game.cameraComponent.viewport.position;
-    Rect rect = game.cameraComponent.visibleWorldRect;
-    if (position.y > center.y + rect.height / 2) {
-      position.y -= rect.height;
-    }
-    if (position.x > center.x + rect.width / 2) {
-      position.x -= rect.width;
-    }
-    if (position.x < center.x - rect.width / 2) {
-      position.x += rect.width;
-    }
-    size = Vector2.all(baseSize * (center.y + rect.height / 2 - y) / rect.width);
+    position += speed * dt;
+    Rect r = game.myCamera.visibleWorldRect;
+    if (position.y > r.bottom) position.y -= r.height;
+    if (position.x > r.right) position.x -= r.width;
+    if (position.x < r.left) position.x += r.width;
+    size = Vector2.all(ratio * (r.bottom - y) / r.height);
   }
 }
 
-class Scene extends World with HasGameRef<Engine> {
+class MyWorld extends World with HasGameRef<MyGame> {
   List<Block> blocks = List.empty(growable: true);
   List<Floor> floors = List.empty(growable: true);
   List<Robot> robots = List.empty(growable: true);
@@ -432,78 +492,58 @@ class Scene extends World with HasGameRef<Engine> {
   List<Star> stars = List.empty(growable: true);
   int get width => maps[level][0].length;
   int get height => maps[level].length;
-  int level = 0;
+  int level = 0, nextLevel = 0, state = 0, counter = 0;
   double timer = 0;
-  late SpriteComponent sky;
-  late AudioPool audioFreeze;
-  late AudioPool audioMove;
-  late AudioPool audioMelt;
-  late AudioPool audioIce;
+  SpriteComponent? sky;
+  late AudioPool audioFreeze, audioMove, audioMelt, audioIce;
   late Robot player;
   late Finish finish;
-  bool animating = true;
+  bool animating = true, win = false;
   Random random = Random();
   List<List<String>> maps = [
     [
-      "-----------",
-      "-----f-----",
-      "+++++++++++",
-      "+++++++++++",
-      "-----------",
-      "--c--x--h--",
+      "-----------", "-----f-----", "+++++++++++",
+      "+++++++++++", "-----------", "--c--x--h--",
     ],
     [
-      "--------++---                              ",
-      "--------++---                      -----   ",
-      "-x---c--++-----------              --f--   ",
-      "--------++---       -              -----   ",
-      "--------++---  ------              -----   ",
-      "               -                   -----   ",
-      "               -                     +     ",
-      "             -----                   +     ",
-      "             -----                   +     ",
-      "             -----                   +     ",
-      "             -----h-          -+++++++     ",
-      "             -------          -+    --     ",
-      "             -----             +           ",
-      "             22+++  --------   +           ",
-      "             22+++  -      -   +           ",
-      "             ----- --- --- h -------++-----",
-      "             ----- -+- -+- - -------++-----",
-      "             -------+---+-----------++-----",
-      "             ----- -+- -+- - -------22--c--",
-      "             ----- --- --- - -------22-----",
+      "                          ", " --------++--- -----      ",
+      " --------++--- --f--      ", " -x---c--++--- -----      ",
+      " --------++--- -----      ", " --------++---   +        ",
+      "            -   -+    --- ", "            -   -+++++++- ",
+      " -----      -   ---    +- ", " ------------          +  ",
+      " -----           ---   +- ", " -----h-         -++++++- ",
+      " -------         -+   --- ", " -----            +       ",
+      " +2+2+  -------   +       ", " +2+2+  -  -  -   +       ",
+      " ----- --- - --- ---++--- ", " ----- -+- h -+- ---22--- ",
+      " -------+-----2-----++-c- ", " ----- -+-   -+- ---22--- ",
+      " ----- ---   --- ---++--- ", "                          ",
     ],
     [
-      "            --    -   ",
-      "            --    --  ",
-      "--------    ++++++-h- ",
-      "-  -   -    +     -x--",
-      "-----22-- ----    c-- ",
-      "  ---  +  ----    --  ",
-      "  ++  ---   2     -   ",
-      " ---- ---   2         ",
-      " ---- -f-   2         ",
-      " ----       2-        ",
-      " ----22222222-        ",
-      " ----                 ",
+      "                        ", "                   -    ",
+      "             --    --   ", " --------    ++++++-h-  ",
+      " -  -   -    +     -x-- ", " -----22-- ----    c--  ",
+      "   ---  +  ----    --   ", "   ++  ---   2     -    ",
+      "  ---- ---   2          ", "  ---- -f-   2          ",
+      "  ----       2-         ", "  ----22222222-         ",
+      "  ----                  ", "                        ",
     ],
     [
-      "    ---+-22222222    ",
-      "    ---+-      -     ",
-      "       +      ---    ",
-      "  ---  +      -f-    ",
-      "-c- -  +      ---    ",
-      "- ---  +  --         ",
-      "---x+++-++----       ",
-      " -  -  +   2 -       ",
-      " -h--  +   2--       ",
-      " --    +   2         ",
-      "       +  ---        ",
-      "       +++---        ",
-      "       -- ---        ",
-      "          --         ",
+      "                   ", "     ---+-22222222 ", "     ---+-      -  ",
+      "        +      --- ", "   ---  +      -f- ", " -c- -  +      --- ",
+      " - ---  +  --      ", " ---x++++++----    ", "  -  -  +   2 -    ",
+      "  -h--  +   2--    ", "  --    +   2      ", "        +  ---     ",
+      "        +++---     ", "        -- ---     ", "           --      ",
+      "                   ",
     ],
+    [
+      "                   ", "   ----------      ", "   -        h      ",
+      "   -        -      ", "  ---      ---     ", " -----++++--x--c-- ",
+      "  ---      ---   - ", "   -        -    - ", "   2     ------- - ",
+      "   2     -     - - ", "   ------- -f- - - ", "   +     - --- - - ",
+      "   ------- --- - - ", "   2     -  2  - - ", "   2     ------- - ",
+      "   -        -    - ", "  ---      ---   - ", " -----++++-------- ",
+      "  ---      ---     ", "   -        -      ", "                   ",
+    ]
   ];
 
   @override
@@ -513,207 +553,186 @@ class Scene extends World with HasGameRef<Engine> {
     audioMove = await FlameAudio.createPool("move.ogg", maxPlayers: 10);
     audioMelt = await FlameAudio.createPool("melt.ogg", maxPlayers: 10);
     audioIce = await FlameAudio.createPool("ice.ogg", maxPlayers: 10);
-    sky = SpriteComponent.fromImage(game.images.fromCache("12.png"));
-    sky.anchor = Anchor.center;
-    sky.priority = -1000;
-    add(sky);
+    sky = SpriteComponent.fromImage(
+      game.images.fromCache("12.png"), anchor: Anchor.center, priority: -1000,
+    );
+    add(sky!);
   }
 
   @override
   Future<void> update(double dt) async {
     if (timer > 0) timer -= dt;
     if (timer < 0) timer = 0;
-    sky.size = game.cameraComponent.visibleWorldRect.size.toVector2();
-    sky.position = -game.cameraComponent.viewport.position;
-  }
-
-  void loadLevel() {
-    for (int y = height - 1, z = 0; y >= 0; y--) {
-      for (int x = 0; x < width; x++, z = random.nextInt(500)) {
-        if (maps[level][y][x] == "2") {
-          blocks.add(Block(x, y, z, BlockType.ice));
-        } else if (maps[level][y][x] == "x") {
-          player = Robot(x, y, z, RobotType.player);
-          floors.add(Floor(x, y, z));
-        } else if (maps[level][y][x] == "h") {
-          robots.add(Robot(x, y, z, RobotType.hot));
-          floors.add(Floor(x, y, z));
-        } else if (maps[level][y][x] == "c") {
-          robots.add(Robot(x, y, z, RobotType.cold));
-          floors.add(Floor(x, y, z));
-        } else if (maps[level][y][x] == "f") {
-          finish = Finish(x, y, z);
-          floors.add(Floor(x, y, z));
-        } else if (maps[level][y][x] == "+") {
-          waters.add(Water(x, y, z));
-        } else if (maps[level][y][x] == "-") {
-          floors.add(Floor(x, y, z));
-        } else if (maps[level][y][x] == " ") {
-          blocks.add(Block(x, y, z, BlockType.wall));
-        }
+    if (level != 0) {
+      if (!game.zooming) {
+        game.myCamera.viewfinder.zoom = 1;
+        game.myCamera.viewfinder.position = Vector2(player._x * 64, player._y * 48 - 48);
+      } else {
+        double r1 = width * 64 / (height * 48);
+        double r2 = game.canvasSize.x / game.canvasSize.y;
+        if (r1 < r2) game.myCamera.viewfinder.zoom = game.canvasSize.y / (height * 48);
+        else game.myCamera.viewfinder.zoom = game.canvasSize.x / (width * 64);
+        game.myCamera.viewfinder.position = Vector2(width * 32 - 32, height * 24 - 48);
       }
     }
-    addAll(blocks);
-    addAll(floors);
-    addAll(robots);
-    addAll(waters);
-    add(player);
-    add(finish);
-    int y = level == 0 ? 2 - player.idy : -player.idy;
-    Vector2 position = Vector2(-player.idx * 64, y * 48 + 48);
-    game.cameraComponent.viewport.position = position;
-    Future.delayed(const Duration(milliseconds: 2000), () => animating = false);
-  }
-
-  void unloadLevel(int nextLevel) {
-    if (animating == true) return;
-    animating = true;
-    player.fadeOut(0);
-    finish.fadeOut(0);
-    for (Block block in blocks) {
-      block.fadeOut(random.nextInt(500));
+    updateSky();
+    if (state == 1 && counter == 0) {
+      state = 0;
+      animating = false;
     }
-    for (Floor floor in floors) {
-      floor.fadeOut(random.nextInt(500));
-    }
-    for (Robot robot in robots) {
-      robot.fadeOut(random.nextInt(500));
-    }
-    for (Water water in waters) {
-      water.fadeOut(random.nextInt(500));
-    }
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      removeAll(blocks);
-      removeAll(floors);
-      removeAll(robots);
-      removeAll(waters);
-      remove(player);
-      remove(finish);
+    if (state == 2 && counter == 0) {
+      state = 0;
+      removeAll([...blocks, ...floors, ...robots, ...waters, player, finish]);
       blocks.clear();
       floors.clear();
       robots.clear();
       waters.clear();
       level = nextLevel;
       loadLevel();
-    });
+    }
+  }
+
+  void loadLevel() {
+    for (int y = height - 1, delay = 0; y >= 0; y--) {
+      for (int x = 0; x < width; x++, delay = random.nextInt(500)) {
+        if (maps[level][y][x] == "2") {
+          blocks.add(Block(x, y, BlockType.ice, delay));
+        } else if (maps[level][y][x] == "x") {
+          player = Robot(x, y, RobotType.player, delay);
+          floors.add(Floor(x, y, delay, 0));
+        } else if (maps[level][y][x] == "h") {
+          robots.add(Robot(x, y, RobotType.hot, delay));
+          floors.add(Floor(x, y, delay, 0));
+        } else if (maps[level][y][x] == "c") {
+          robots.add(Robot(x, y, RobotType.cold, delay));
+          floors.add(Floor(x, y, delay, 0));
+        } else if (maps[level][y][x] == "f") {
+          finish = Finish(x, y, delay);
+          floors.add(Floor(x, y, delay, 0));
+        } else if (maps[level][y][x] == "+") {
+          waters.add(Water(x, y, delay));
+        } else if (maps[level][y][x] == "-") {
+          floors.add(Floor(x, y, delay, 0));
+        } else if (maps[level][y][x] == " ") {
+          blocks.add(Block(x, y, BlockType.wall, delay));
+        }
+      }
+    }
+    counter = blocks.length + floors.length + waters.length + robots.length + 2;
+    state = 1;
+    addAll([...blocks, ...floors, ...robots, ...waters, player, finish]);
+    int y = player._y - (level == 0 ? 2 : 0);
+    game.myCamera.viewfinder.position = Vector2(player._x * 64, y * 48 - 48);
+    updateSky();
+    if (win) createStars();
+  }
+
+  void updateSky() {
+    if (sky == null) return;
+    sky!.size = game.myCamera.visibleWorldRect.size.toVector2();
+    sky!.position = game.myCamera.viewfinder.position;
+  }
+
+  void unloadLevel() {
+    if (animating == true) return;
+    animating = true;
+    player.fadeOut(0);
+    finish.fadeOut(0);
+    for (Block e in blocks) e.fadeOut(random.nextInt(500));
+    for (Floor e in floors) e.fadeOut(random.nextInt(500));
+    for (Robot e in robots) e.fadeOut(random.nextInt(500));
+    for (Water e in waters) e.fadeOut(random.nextInt(500));
+    counter = blocks.length + floors.length + waters.length + robots.length + 2;
+    state = 2;
   }
 
   void createStars() {
     for (int i = 0; i < 100; i++) {
-      Star star = Star();
-      Vector2 center = -game.cameraComponent.viewport.position;
-      Rect rect = game.cameraComponent.visibleWorldRect;
-      double x = center.x + (2 * random.nextDouble() - 1) * rect.width;
-      double y = center.y - rect.height / 2;
-      star.position = Vector2(x, y);
-      star.baseSize = random.nextDouble() * 100 + 10;
-      star.speed = Vector2(random.nextDouble(), 1 + random.nextDouble());
-      stars.add(star);
+      Rect r = game.myCamera.visibleWorldRect;
+      stars.add(Star()
+        ..position = Vector2(r.left + random.nextDouble() * r.width, r.top)
+        ..ratio = random.nextDouble() * 100 + 10
+        ..speed = Vector2(random.nextDouble(), 1 + random.nextDouble()) * 100
+      );
     }
     addAll(stars);
   }
 
   void movePlayer(int dx, int dy) {
-    if (animating || level == 0 || timer > 0) return;
+    if (animating || level == 0 || timer > 0 || game.zooming) return;
     timer = 0.1;
-    int newX = player.idx + dx;
-    int newY = player.idy + dy;
-    if (newX < 0 || newX >= width || newY < 0 || newY >= height) return;
-    if (checkBlock(newX, newY) != null) return;
-    if (checkWater(newX, newY) != null) return;
-    Robot? robot = checkRobot(newX, newY);
-    if (robot != null) {
-      int nextX = newX + dx;
-      int nextY = newY + dy;
-      if (checkFinish(nextX, nextY)) return;
-      if (checkRobot(nextX, nextY) != null) return;
-      Block? block = checkBlock(nextX, nextY);
-      if (block != null) {
-        if (block.type != BlockType.ice || robot.type != RobotType.hot) return;
-        blocks.remove(block);
-        remove(block);
-        floors.add(Floor(block.idx, block.idy, 0));
+    var x1 = player._x + dx, y1 = player._y + dy;
+    if (x1 < 0 || x1 >= width || y1 < 0 || y1 >= height) return;
+    if (getBlockAt(x1, y1) != null) return;
+    if (getWaterAt(x1, y1, WaterType.liquid) != null) return;
+    Robot? r = getRobotAt(x1, y1);
+    int n = floors.length;
+    if (r != null) {
+      var x2 = x1 + dx, y2 = y1 + dy;
+      if (finish._x == x2 && finish._y == y2) return;
+      if (getRobotAt(x2, y2) != null) return;
+      Block? b = getBlockAt(x2, y2);
+      if (b != null) {
+        if (b.type != BlockType.ice || r.type != RobotType.hot) return;
+        blocks.remove(b);
+        remove(b);
+        floors.add(Floor(b._x, b._y, -1, 1));
         add(floors.last);
         audioMelt.start(volume: 0.2);
       }
-      Water? water = checkWater(nextX, nextY);
-      if (robot.type != RobotType.cold) {
-        if (water != null) return;
-      } else if (water != null) {
-        water.type = WaterType.frozen;
+      Water? w = getWaterAt(x2, y2, WaterType.liquid);
+      if (r.type != RobotType.cold) {
+        if (w != null) return;
+      } else if (w != null) {
+        w.type = WaterType.frozen;
         audioFreeze.start(volume: 0.3);
       }
-      if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) return;
-      Water? frozen = checkFrozen(newX, newY);
-      if (frozen != null && robot.type == RobotType.hot) frozen.count = 3;
-      robot.idx = nextX;
-      robot.idy = nextY;
+      if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) return;
+      w = getWaterAt(x1, y1, WaterType.frozen);
+      if (w != null && r.type == RobotType.hot) w.temperature = 3;
+      r.._x = x2.._y = y2;
     }
-    for (Water frozen in waters) {
-      frozen.count--;
-      if (frozen.type != WaterType.frozen || frozen.count != 1) continue;
-      frozen.count = 0;
-      frozen.type = WaterType.liquid;
+    for (Water e in waters) {
+      e.temperature--;
+      if (e.type == WaterType.liquid || e.temperature != 1) continue;
+      e.temperature = 0;
+      e.type = WaterType.liquid;
       audioMelt.start(volume: 0.2);
     }
-    if (checkFrozen(newX, newY) == null) {
-      audioMove.start(volume: 0.1);
-    } else {
-      audioIce.start(volume: 0.1);
-    }
-    player.idx = newX;
-    player.idy = newY;
-    if (checkFinish(newX, newY)) {
-      if (level == 3) {
+    if (getWaterAt(x1, y1, WaterType.frozen) == null) audioMove.start(volume: 0.1);
+    else audioIce.start(volume: 0.1);
+    player.._x = x1.._y = y1;
+    if (finish._x == x1 && finish._y == y1) {
+      if (level == maps.length - 1) {
         FlameAudio.bgm.stop();
         FlameAudio.playLongAudio("win.ogg", volume: 0.25);
-        createStars();
+        win = true;
         game.menu();
       } else {
-        unloadLevel(level + 1);
+        nextLevel = level + 1;
+        unloadLevel();
         FlameAudio.play("key.ogg", volume: 0.1);
       }
     } else {
-      Vector2 position = Vector2(-newX * 64, -newY * 48 + 48);
-      game.cameraComponent.viewport.position = position;
+      for (Water e in waters) e.record();
+      for (Robot e in robots) e.record();
+      for (int i = 0; i < n; i++) floors[i].record(0);
+      player.record();
     }
   }
 
-  Block? checkBlock(int idx, int idy) {
-    for (Block block in blocks) {
-      if (idx == block.idx && idy == block.idy) return block;
-    }
+  Block? getBlockAt(int x, int y) {
+    for (Block e in blocks) if (e._x == x && e._y == y) return e;
     return null;
   }
 
-  Robot? checkRobot(int idx, int idy) {
-    for (Robot robot in robots) {
-      if (idx == robot.idx && idy == robot.idy) return robot;
-    }
+  Robot? getRobotAt(int x, int y) {
+    for (Robot e in robots) if (e._x == x && e._y == y) return e;
     return null;
   }
 
-  Water? checkWater(int idx, int idy) {
-    for (Water water in waters) {
-      if (water.type != WaterType.liquid) continue;
-      if (idx == water.idx && idy == water.idy) return water;
-    }
+  Water? getWaterAt(int x, int y, WaterType type) {
+    for (Water e in waters) if (e._x == x && e._y == y && e.type == type) return e;
     return null;
-  }
-
-  Water? checkFrozen(int idx, int idy) {
-    for (Water water in waters) {
-      if (water.type != WaterType.frozen) continue;
-      if (idx == water.idx && idy == water.idy) return water;
-    }
-    return null;
-  }
-
-  bool checkFinish(int idx, idy) {
-    return idx == finish.idx && idy == finish.idy;
-  }
-
-  bool checkPlayer(int idx, int idy) {
-    return idx == player.idx && idy == player.idy;
   }
 }
