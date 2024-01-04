@@ -37,7 +37,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(useMaterial3: true),
       home: SafeArea(child: Scaffold(body: GameWidget<MyGame>.controlled(
         gameFactory: MyGame.new,
-        initialActiveOverlays: const ["Menu"],
         overlayBuilderMap: {
           "Menu": (_, myGame) => OverlayMenu(myGame: myGame),
           "Game": (_, myGame) => OverlayGame(myGame: myGame),
@@ -160,7 +159,6 @@ class MyGame extends FlameGame with KeyboardEvents {
     myWorld.nextLevel = 0;
     myWorld.unloadLevel();
     overlays.remove("Game");
-    overlays.add("Menu");
   }
 
   void zoom() {
@@ -579,6 +577,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
     if (state == 1 && counter == 0) {
       state = 0;
       animating = false;
+      if (level == 0) gameRef.overlays.add("Menu");
     }
     if (state == 2 && counter == 0) {
       state = 0;
