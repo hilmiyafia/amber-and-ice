@@ -2,11 +2,11 @@ import 'package:flame/components.dart';
 import 'item.dart';
 import 'wall.dart';
 
-enum FinishType { base }
+enum FinishType { normal }
 enum FinishState { empty, wall, robot }
 
 class Finish extends Item<FinishState, FinishType> {
-  Finish(int X, int Y) : super(X, Y, FinishType.base);
+  Finish(int X, int Y) : super(X, Y, FinishType.normal);
 
   @override
   Future<void> onLoad() async {
