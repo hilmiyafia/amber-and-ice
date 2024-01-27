@@ -2,13 +2,13 @@ import 'package:flame/components.dart';
 import 'item.dart';
 import 'wall.dart';
 
-enum FloorType { base }
+enum FloorType { normal }
 enum FloorState { stepEmpty, stepWall, stepRobot, stepKey, baseEmpty, baseWall, baseRobot, baseKey, keyEmpty, keyWall, keyRobot }
 
 class Floor extends UndoableItem<FloorState, FloorType, int> {
   int state;
 
-  Floor(int X, int Y, this.state) : super(X, Y, FloorType.base);
+  Floor(int X, int Y, this.state) : super(X, Y, FloorType.normal);
 
   @override
   Future<void> onLoad() async {
