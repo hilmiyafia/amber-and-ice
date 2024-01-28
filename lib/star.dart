@@ -11,17 +11,16 @@ class Star extends SpriteComponent with HasGameRef<MyGame> {
 
   @override
   Future<void> onLoad() async {
-    anchor = Anchor.center;
     sprite = Sprite(game.images.fromCache("11.png"));
+    anchor = Anchor.center;
   }
 
   @override
   void update(double dt) {
     position += speed * dt;
-    Vector2 viewportSize = game.myCamera.viewport.size;
-    if (y > viewportSize.y) y -= viewportSize.y;
-    if (x > viewportSize.x) x -= viewportSize.x;
-    if (x < 0) x += viewportSize.x;
-    size = Vector2.all(ratio * (1 - y / viewportSize.y));
+    if (y > game.myCamera.viewport.size.y) y -= game.myCamera.viewport.size.y;
+    if (x > game.myCamera.viewport.size.x) x -= game.myCamera.viewport.size.x;
+    if (x < 0) x += game.myCamera.viewport.size.x;
+    size = Vector2.all(ratio * (1 - y / game.myCamera.viewport.size.y));
   }
 }
