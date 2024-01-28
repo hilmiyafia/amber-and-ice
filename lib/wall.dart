@@ -1,7 +1,7 @@
 import 'package:flame/components.dart';
 import 'item.dart';
 
-enum WallType { wall, ice }
+enum WallType { invisible, visible }
 enum WallState { empty, wall }
 
 class Wall extends Item<WallState, WallType> {
@@ -9,7 +9,7 @@ class Wall extends Item<WallState, WallType> {
 
   @override
   Future<void> onLoad() async {
-    if (type == WallType.wall) return;
+    if (type == WallType.invisible) return;
     animations = {
       WallState.empty: loadSprite("3_0.png", 1, Vector2(160, 240)),
       WallState.wall: loadSprite("3_1.png", 1, Vector2(160, 240)),
@@ -20,16 +20,12 @@ class Wall extends Item<WallState, WallType> {
   }
 
   @override
-  void update(double dt) {
-    super.update(dt);
-    if (type == WallType.wall) return;
-    var index = 0;
-    var wall = game.myWorld.getWallAt(X + 1, Y);
-    if (X + 1 == game.myWorld.width) {
-      index = 0;
-    } else if (wall != null && wall.type != WallType.wall) {
-      index = 1;
+  void updateSprite() {
+    if (type == WallType.invisible) return;
+    if (game.myWorld.getWallAt(X + 1, Y, type: WallType.visible) != null) {
+      current = WallState.wall;
+    } else {
+      current = WallState.empty;
     }
-    current = WallState.values[index];
   }
 }

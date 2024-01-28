@@ -28,6 +28,7 @@ class Item<T1, T2> extends SpriteAnimationGroupComponent<T1> with HasGameRef<MyG
       y = Y * 48;
     }
     priority = Y * 2 + priorityOffset;
+    updateSprite();
   }
 
   void fadeIn(int delay) {
@@ -56,6 +57,8 @@ class Item<T1, T2> extends SpriteAnimationGroupComponent<T1> with HasGameRef<MyG
       ),
     );
   }
+
+  void updateSprite() {}
 }
 
 class UndoableItem<T1, T2, T3> extends Item<T1, T2> {

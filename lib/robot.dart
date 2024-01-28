@@ -22,20 +22,14 @@ class Robot extends UndoableItem<RobotState, RobotType, ({int x, int y})> {
   }
 
   @override
-  void update(double dt) {
-    super.update(dt);
-    var index = 0;
-    var wall = game.myWorld.getWallAt(X + 1, Y);
-    if (X + 1 == game.myWorld.width) {
-      index = 0;
-    } else if (game.myWorld.player.X == X + 1 && game.myWorld.player.Y == Y) {
-      index = 2;
-    } else if (game.myWorld.getRobotAt(X + 1, Y) != null) {
-      index = 2;
-    } else if (wall != null && wall.type != WallType.wall) {
-      index = 1;
+  void updateSprite() {
+    if (game.myWorld.getRobotAt(X + 1, Y, withPlayer: true) != null) {
+      current = RobotState.robot;
+    } else if (game.myWorld.getWallAt(X + 1, Y, type: WallType.visible) != null) {
+      current = RobotState.wall;
+    } else {
+      current = RobotState.empty;
     }
-    current = RobotState.values[index];
   }
 
   @override

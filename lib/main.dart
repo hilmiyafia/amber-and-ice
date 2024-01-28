@@ -235,7 +235,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
       for (int x = 0; x < width; x++) {
         switch (maps[level][y][x]) {
           case "2":
-            walls.add(Wall(x, y, WallType.ice));
+            walls.add(Wall(x, y, WallType.visible));
           case "x":
             player = Robot(x, y, RobotType.player);
             floors.add(Floor(x, y, 0));
@@ -253,7 +253,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
           case "-":
             floors.add(Floor(x, y, 0));
           case " ":
-            walls.add(Wall(x, y, WallType.wall));
+            walls.add(Wall(x, y, WallType.invisible));
         }
       }
     }
@@ -303,7 +303,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
       if (getRobotAt(x2, y2) != null) return;
       var wall = getWallAt(x2, y2);
       if (wall != null) {
-        if (wall.type != WallType.ice || robot.type != RobotType.hot) return;
+        if (wall.type != WallType.visible || robot.type != RobotType.hot) return;
         walls.remove(wall);
         remove(wall);
         floors.add(Floor(wall.X, wall.Y, 1));
@@ -359,18 +359,18 @@ class MyWorld extends World with HasGameRef<MyGame> {
     sky!.position = game.myCamera.viewfinder.position;
   }
 
-  Wall? getWallAt(int x, int y) {
+  Wall? getWallAt(int x, int y, {WallType? type}) {
     for (var wall in walls) {
-      if (wall.X == x && wall.Y == y) return wall;
+      if (wall.X == x && wall.Y == y && (type == null || wall.type == type)) return wall;
     }
     return null;
   }
 
-  Robot? getRobotAt(int x, int y) {
+  Robot? getRobotAt(int x, int y, {bool withPlayer = false}) {
     for (var robot in robots) {
       if (robot.X == x && robot.Y == y) return robot;
     }
-    return null;
+    return withPlayer && player.X == x && player.Y == y ? player : null;
   }
 
   Water? getWaterAt(int x, int y, WaterType type) {

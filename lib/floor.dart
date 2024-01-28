@@ -3,7 +3,7 @@ import 'item.dart';
 import 'wall.dart';
 
 enum FloorType { normal }
-enum FloorState { stepEmpty, stepWall, stepRobot, stepKey, baseEmpty, baseWall, baseRobot, baseKey, keyEmpty, keyWall, keyRobot }
+enum FloorState { baseEmpty, baseWall, baseRobot, baseKey, stepEmpty, stepWall, stepRobot, stepKey,  keyEmpty, keyWall, keyRobot }
 
 class Floor extends UndoableItem<FloorState, FloorType, int> {
   int state;
@@ -31,24 +31,16 @@ class Floor extends UndoableItem<FloorState, FloorType, int> {
   }
 
   @override
-  void update(double dt) {
-    super.update(dt);
-    var index = 4;
-    var wall = game.myWorld.getWallAt(X + 1, Y);
-    if (game.myWorld.player.X == X && game.myWorld.player.Y == Y) {
-      index = 0;
-    } else if (game.myWorld.getRobotAt(X, Y) != null) {
-      index = 0;
+  void updateSprite() {
+    var index = 0;
+    if (game.myWorld.getRobotAt(X, Y, withPlayer: true) != null) {
+      index = 4;
     } else if (game.myWorld.finish.X == X && game.myWorld.finish.Y == Y) {
       index = 8;
     }
-    if (X + 1 == game.myWorld.width) {
-      index += 0;
-    } else if (wall != null && wall.type != WallType.wall) {
+    if (game.myWorld.getWallAt(X + 1, Y, type: WallType.visible) != null) {
       index += 1;
-    } else if (game.myWorld.getRobotAt(X + 1, Y) != null) {
-      index += 2;
-    } else if (game.myWorld.player.X == X + 1 && game.myWorld.player.Y == Y) {
+    } else if (game.myWorld.getRobotAt(X + 1, Y, withPlayer: true) != null) {
       index += 2;
     } else if (game.myWorld.finish.X == X + 1 && game.myWorld.finish.Y == Y) {
       index += 3;
@@ -66,7 +58,7 @@ class Floor extends UndoableItem<FloorState, FloorType, int> {
   @override
   void undo() {
     if (records.last == 1) {
-      game.myWorld.walls.add(Wall(X, Y, WallType.ice));
+      game.myWorld.walls.add(Wall(X, Y, WallType.visible));
       game.myWorld.add(game.myWorld.walls.last);
       game.myWorld.remove(this);
       game.myWorld.floors.remove(this);
