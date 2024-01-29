@@ -2,20 +2,18 @@ import 'package:flame/components.dart';
 import 'item.dart';
 import 'wall.dart';
 
-enum FinishType { normal }
-enum FinishState { empty, wall, robot }
+enum FinishSprite { noShadow, wallShadow, robotShadow }
 
-class Finish extends Item<FinishState, FinishType> {
-  Finish(int X, int Y) : super(X, Y, FinishType.normal);
+class Finish extends Item<FinishSprite> {
+  Finish(int X, int Y) : super(X, Y);
 
   @override
   Future<void> onLoad() async {
     animations = {
-      FinishState.empty: loadSprite("10_0.png", 1, Vector2(160, 200)),
-      FinishState.wall: loadSprite("10_1.png", 1, Vector2(160, 200)),
-      FinishState.robot: loadSprite("10_2.png", 1, Vector2(160, 200)),
+      FinishSprite.noShadow: loadSprite("10_0.png", 1, Vector2(160, 200)),
+      FinishSprite.wallShadow: loadSprite("10_1.png", 1, Vector2(160, 200)),
+      FinishSprite.robotShadow: loadSprite("10_2.png", 1, Vector2(160, 200)),
     };
-    current = FinishState.empty;
     size = Vector2(64, 80);
     anchor = Anchor.bottomCenter;
   }
@@ -23,11 +21,11 @@ class Finish extends Item<FinishState, FinishType> {
   @override
   void updateSprite() {
     if (game.myWorld.getWallAt(X + 1, Y, type: WallType.visible) != null) {
-      current = FinishState.wall;
+      current = FinishSprite.wallShadow;
     } else if (game.myWorld.getRobotAt(X + 1, Y, withPlayer: true) != null) {
-      current = FinishState.robot;
+      current = FinishSprite.robotShadow;
     } else {
-      current = FinishState.empty;
+      current = FinishSprite.noShadow;
     }
   }
 }

@@ -3,9 +3,13 @@ import 'item.dart';
 import 'wall.dart';
 
 enum WaterType { liquid, frozen }
-enum WaterState { frozenEmpty, frozenWall, frozenRobot, liquidEmpty, liquidWall, liquidRobot, stepEmpty, stepWall, stepRobot }
+enum WaterSprite {
+  frozenNoShadow, frozenWallShadow, frozenRobotShadow,
+  liquidNoShadow, liquidWallShadow, liquidRobotShadow,
+  steppedNoShadow, steppedWallShadow, steppedRobotShadow
+}
 
-class Water extends UndoableItem<WaterState, WaterType, ({WaterType type, int counter})> {
+class Water extends UndoableTypedItem<WaterType, WaterSprite, ({WaterType type, int counter})> {
   int counter = 0;
 
   Water(int X, int Y) : super(X, Y, WaterType.liquid);
@@ -13,17 +17,16 @@ class Water extends UndoableItem<WaterState, WaterType, ({WaterType type, int co
   @override
   Future<void> onLoad() async {
     animations = {
-      WaterState.frozenEmpty: loadSprite("8_0.png", 1, Vector2(160, 160)),
-      WaterState.frozenWall: loadSprite("8_1.png", 1, Vector2(160, 160)),
-      WaterState.frozenRobot: loadSprite("8_2.png", 1, Vector2(160, 160)),
-      WaterState.liquidEmpty: loadSprite("7_0.png", 8, Vector2(160, 160)),
-      WaterState.liquidWall: loadSprite("7_1.png", 8, Vector2(160, 160)),
-      WaterState.liquidRobot: loadSprite("7_2.png", 8, Vector2(160, 160)),
-      WaterState.stepEmpty: loadSprite("9_0.png", 1, Vector2(160, 160)),
-      WaterState.stepWall: loadSprite("9_1.png", 1, Vector2(160, 160)),
-      WaterState.stepRobot: loadSprite("9_2.png", 1, Vector2(160, 160)),
+      WaterSprite.frozenNoShadow: loadSprite("8_0.png", 1, Vector2(160, 160)),
+      WaterSprite.frozenWallShadow: loadSprite("8_1.png", 1, Vector2(160, 160)),
+      WaterSprite.frozenRobotShadow: loadSprite("8_2.png", 1, Vector2(160, 160)),
+      WaterSprite.liquidNoShadow: loadSprite("7_0.png", 8, Vector2(160, 160)),
+      WaterSprite.liquidWallShadow: loadSprite("7_1.png", 8, Vector2(160, 160)),
+      WaterSprite.liquidRobotShadow: loadSprite("7_2.png", 8, Vector2(160, 160)),
+      WaterSprite.steppedNoShadow: loadSprite("9_0.png", 1, Vector2(160, 160)),
+      WaterSprite.steppedWallShadow: loadSprite("9_1.png", 1, Vector2(160, 160)),
+      WaterSprite.steppedRobotShadow: loadSprite("9_2.png", 1, Vector2(160, 160)),
     };
-    current = WaterState.liquidEmpty;
     size = Vector2(64, 64);
     anchor = const Anchor(0.5, 1 - 16 / 64);
   }
@@ -41,7 +44,7 @@ class Water extends UndoableItem<WaterState, WaterType, ({WaterType type, int co
     } else if (game.myWorld.getRobotAt(X + 1, Y, withPlayer: true) != null) {
       index += 2;
     }
-    current = WaterState.values[index];
+    current = WaterSprite.values[index];
   }
 
   @override

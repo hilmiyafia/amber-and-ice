@@ -1,15 +1,14 @@
 import 'package:flame/components.dart';
 import 'main.dart';
 
-class Item<T1, T2> extends SpriteAnimationGroupComponent<T1> with HasGameRef<MyGame> {
+class Item<T> extends SpriteAnimationGroupComponent<T> with HasGameRef<MyGame> {
   double timer = 1;
   double start = -1000;
   double stop = -1000;
   int X, Y;
-  T2 type;
   int priorityOffset = 0;
 
-  Item(this.X, this.Y, this.type);
+  Item(this.X, this.Y);
 
   @override
   void update(double dt) {
@@ -61,12 +60,24 @@ class Item<T1, T2> extends SpriteAnimationGroupComponent<T1> with HasGameRef<MyG
   void updateSprite() {}
 }
 
-class UndoableItem<T1, T2, T3> extends Item<T1, T2> {
-  List<T3> records = List<T3>.empty(growable: true);
+class TypedItem<T1, T2> extends Item<T2> {
+  T1 type;
 
-  UndoableItem(super.X, super.Y, super.type);
+  TypedItem(super.X, super.Y, this.type);
+}
+
+class UndoableItem<T1, T2> extends Item<T1> {
+  List<T2> records = List<T2>.empty(growable: true);
+
+  UndoableItem(super.X, super.Y);
 
   void record() {}
 
   void undo() {}
+}
+
+class UndoableTypedItem<T1, T2, T3> extends UndoableItem<T2, T3> {
+  T1 type;
+
+  UndoableTypedItem(super.X, super.Y, this.type);
 }

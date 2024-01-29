@@ -2,30 +2,32 @@ import 'package:flame/components.dart';
 import 'item.dart';
 import 'wall.dart';
 
-enum FloorType { normal }
-enum FloorState { baseEmpty, baseWall, baseRobot, baseKey, stepEmpty, stepWall, stepRobot, stepKey,  keyEmpty, keyWall, keyRobot }
+enum FloorSprite {
+  emptyNoShadow, emptyWallShadow, emptyRobotShadow, emptyKeyShadow,
+  steppedNoShadow, steppedWallShadow, steppedRobotShadow, steppedKeyShadow,
+  hasKeyNoShadow, hasKeyWallShadow, hasKeyRobotShadow
+}
 
-class Floor extends UndoableItem<FloorState, FloorType, int> {
+class Floor extends UndoableItem<FloorSprite, int> {
   int state;
 
-  Floor(int X, int Y, this.state) : super(X, Y, FloorType.normal);
+  Floor(int X, int Y, this.state) : super(X, Y);
 
   @override
   Future<void> onLoad() async {
     animations = {
-      FloorState.baseEmpty: loadSprite("4_0.png", 1, Vector2(160, 160)),
-      FloorState.baseWall: loadSprite("4_1.png", 1, Vector2(160, 160)),
-      FloorState.baseRobot: loadSprite("4_2.png", 1, Vector2(160, 160)),
-      FloorState.baseKey: loadSprite("4_3.png", 1, Vector2(160, 160)),
-      FloorState.stepEmpty: loadSprite("5_0.png", 1, Vector2(160, 160)),
-      FloorState.stepWall: loadSprite("5_1.png", 1, Vector2(160, 160)),
-      FloorState.stepRobot: loadSprite("5_2.png", 1, Vector2(160, 160)),
-      FloorState.stepKey: loadSprite("5_3.png", 1, Vector2(160, 160)),
-      FloorState.keyEmpty: loadSprite("6_0.png", 1, Vector2(160, 160)),
-      FloorState.keyWall: loadSprite("6_1.png", 1, Vector2(160, 160)),
-      FloorState.keyRobot: loadSprite("6_2.png", 1, Vector2(160, 160)),
+      FloorSprite.emptyNoShadow: loadSprite("4_0.png", 1, Vector2(160, 160)),
+      FloorSprite.emptyWallShadow: loadSprite("4_1.png", 1, Vector2(160, 160)),
+      FloorSprite.emptyRobotShadow: loadSprite("4_2.png", 1, Vector2(160, 160)),
+      FloorSprite.emptyKeyShadow: loadSprite("4_3.png", 1, Vector2(160, 160)),
+      FloorSprite.steppedNoShadow: loadSprite("5_0.png", 1, Vector2(160, 160)),
+      FloorSprite.steppedWallShadow: loadSprite("5_1.png", 1, Vector2(160, 160)),
+      FloorSprite.steppedRobotShadow: loadSprite("5_2.png", 1, Vector2(160, 160)),
+      FloorSprite.steppedKeyShadow: loadSprite("5_3.png", 1, Vector2(160, 160)),
+      FloorSprite.hasKeyNoShadow: loadSprite("6_0.png", 1, Vector2(160, 160)),
+      FloorSprite.hasKeyWallShadow: loadSprite("6_1.png", 1, Vector2(160, 160)),
+      FloorSprite.hasKeyRobotShadow: loadSprite("6_2.png", 1, Vector2(160, 160)),
     };
-    current = FloorState.baseEmpty;
     size = Vector2(64, 64);
     anchor = const Anchor(0.5, 1 - 16 / 64);
   }
@@ -45,7 +47,7 @@ class Floor extends UndoableItem<FloorState, FloorType, int> {
     } else if (game.myWorld.finish.X == X + 1 && game.myWorld.finish.Y == Y) {
       index += 3;
     }
-    current = FloorState.values[index];
+    current = FloorSprite.values[index];
   }
 
   @override

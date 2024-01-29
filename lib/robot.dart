@@ -2,20 +2,19 @@ import 'package:flame/components.dart';
 import 'item.dart';
 import 'wall.dart';
 
-enum RobotType { player, hot, cold }
-enum RobotState { empty, wall, robot }
+enum RobotType { player, amber, ice }
+enum RobotSprite { noShadow, wallShadow, robotShadow }
 
-class Robot extends UndoableItem<RobotState, RobotType, ({int x, int y})> {
+class Robot extends UndoableTypedItem<RobotType, RobotSprite, ({int x, int y})> {
   Robot(super.X, super.Y, super.type);
 
   @override
   Future<void> onLoad() async {
     animations = {
-      RobotState.empty: loadSprite("${type.index}_0.png", 1, Vector2(160, 240)),
-      RobotState.wall: loadSprite("${type.index}_1.png", 1, Vector2(160, 240)),
-      RobotState.robot: loadSprite("${type.index}_2.png", 1, Vector2(160, 240)),
+      RobotSprite.noShadow: loadSprite("${type.index}_0.png", 1, Vector2(160, 240)),
+      RobotSprite.wallShadow: loadSprite("${type.index}_1.png", 1, Vector2(160, 240)),
+      RobotSprite.robotShadow: loadSprite("${type.index}_2.png", 1, Vector2(160, 240)),
     };
-    current = RobotState.empty;
     size = Vector2(64, 96);
     anchor = Anchor.bottomCenter;
     priorityOffset = 1;
@@ -24,11 +23,11 @@ class Robot extends UndoableItem<RobotState, RobotType, ({int x, int y})> {
   @override
   void updateSprite() {
     if (game.myWorld.getRobotAt(X + 1, Y, withPlayer: true) != null) {
-      current = RobotState.robot;
+      current = RobotSprite.robotShadow;
     } else if (game.myWorld.getWallAt(X + 1, Y, type: WallType.visible) != null) {
-      current = RobotState.wall;
+      current = RobotSprite.wallShadow;
     } else {
-      current = RobotState.empty;
+      current = RobotSprite.noShadow;
     }
   }
 

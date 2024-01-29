@@ -240,10 +240,10 @@ class MyWorld extends World with HasGameRef<MyGame> {
             player = Robot(x, y, RobotType.player);
             floors.add(Floor(x, y, 0));
           case "h":
-            robots.add(Robot(x, y, RobotType.hot));
+            robots.add(Robot(x, y, RobotType.amber));
             floors.add(Floor(x, y, 0));
           case "c":
-            robots.add(Robot(x, y, RobotType.cold));
+            robots.add(Robot(x, y, RobotType.ice));
             floors.add(Floor(x, y, 0));
           case "f":
             finish = Finish(x, y);
@@ -303,7 +303,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
       if (getRobotAt(x2, y2) != null) return;
       var wall = getWallAt(x2, y2);
       if (wall != null) {
-        if (wall.type != WallType.visible || robot.type != RobotType.hot) return;
+        if (wall.type != WallType.visible || robot.type != RobotType.amber) return;
         walls.remove(wall);
         remove(wall);
         floors.add(Floor(wall.X, wall.Y, 1));
@@ -311,7 +311,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
         audioMelt.start(volume: 0.2);
       }
       var water = getWaterAt(x2, y2, WaterType.liquid);
-      if (robot.type != RobotType.cold) {
+      if (robot.type != RobotType.ice) {
         if (water != null) return;
       } else if (water != null) {
         water.type = WaterType.frozen;
@@ -319,7 +319,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
       }
       if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) return;
       water = getWaterAt(x1, y1, WaterType.frozen);
-      if (water != null && robot.type == RobotType.hot) water.counter = 3;
+      if (water != null && robot.type == RobotType.amber) water.counter = 3;
       robot..X = x2..Y = y2;
     }
     for (var water in waters) {
