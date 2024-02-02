@@ -59,13 +59,12 @@ class Floor extends UndoableItem<FloorSprite, int> {
 
   @override
   void undo() {
+    records.removeLast();
     if (records.last == 1) {
       game.myWorld.floors.remove(this);
       game.myWorld.remove(this);
       game.myWorld.walls.add(Wall(X, Y, WallType.visible));
       game.myWorld.add(game.myWorld.walls.last);
-    } else {
-      records.removeLast();
     }
   }
 }

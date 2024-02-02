@@ -311,6 +311,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
           remove(wall2);
           floors.add(Floor(wall2.X, wall2.Y, 1));
           add(floors.last);
+          floors.last.record();
           audioMelt.start(volume: 0.2);
         } else {
           return;
