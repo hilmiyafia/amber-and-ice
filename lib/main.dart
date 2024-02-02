@@ -305,17 +305,14 @@ class MyWorld extends World with HasGameRef<MyGame> {
       if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) return;
       var wall2 = getWallAt(x2, y2);
       if (wall2 != null) {
-        if (wall2.type == WallType.visible) {
-          if (robot1.type != RobotType.amber) return;
-          walls.remove(wall2);
-          remove(wall2);
-          floors.add(Floor(wall2.X, wall2.Y, 1));
-          add(floors.last);
-          floors.last.record();
-          audioMelt.start(volume: 0.2);
-        } else {
-          return;
-        }
+        if (wall2.type == WallType.invisible) return;
+        if (robot1.type != RobotType.amber) return;
+        walls.remove(wall2);
+        remove(wall2);
+        floors.add(Floor(wall2.X, wall2.Y, 1));
+        add(floors.last);
+        floors.last.record();
+        audioMelt.start(volume: 0.2);
       }
       var water2 = getWaterAt(x2, y2);
       if (water2 != null) {
