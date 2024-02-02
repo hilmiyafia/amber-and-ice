@@ -75,7 +75,7 @@ class MyGame extends FlameGame with KeyboardEvents {
     myCamera.viewport.removeAll(myWorld.stars);
     myWorld.win = false;
     myWorld.stars.clear();
-    myWorld.unloadLevel(1);
+    myWorld.goToLevel(1);
     overlays.remove("Menu");
     overlays.add("Game");
   }
@@ -83,12 +83,12 @@ class MyGame extends FlameGame with KeyboardEvents {
   void restart() {
     FlameAudio.play("button.ogg");
     if (myWorld.zooming) return;
-    myWorld.unloadLevel(myWorld.level);
+    myWorld.goToLevel(myWorld.level);
   }
 
   void menu() {
     FlameAudio.play("button.ogg");
-    myWorld.unloadLevel(0);
+    myWorld.goToLevel(0);
     overlays.remove("Game");
   }
 
@@ -176,7 +176,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
 
   @override
   Future<void> onLoad() async {
-    loadLevel();
+    loadMap();
     audioFreeze = await FlameAudio.createPool("freeze.ogg", maxPlayers: 10);
     audioMove = await FlameAudio.createPool("move.ogg", maxPlayers: 10);
     audioMelt = await FlameAudio.createPool("melt.ogg", maxPlayers: 10);
@@ -222,12 +222,12 @@ class MyWorld extends World with HasGameRef<MyGame> {
       robots.clear();
       waters.clear();
       level = nextLevel;
-      loadLevel();
+      loadMap();
     }
     moveSky();
   }
 
-  void loadLevel() {
+  void loadMap() {
     for (int y = height - 1; y >= 0; y--) {
       for (int x = 0; x < width; x++) {
         switch (maps[level][y][x]) {
@@ -254,24 +254,24 @@ class MyWorld extends World with HasGameRef<MyGame> {
         }
       }
     }
-    counter = items.length;
-    state = 1;
-    addAll(items);
-    int y = player.Y - (level == 0 ? 2 : 0);
-    game.myCamera.viewfinder.position = Vector2(player.X * 64, y * 48 - 48);
-    moveSky();
+    if (level == 0) {
+      game.myCamera.viewfinder.position = Vector2(player.X * 64, player.Y * 48 - 144);
+    } else {
+      game.myCamera.viewfinder.position = Vector2(player.X * 64, player.Y * 48 - 48);
+    }
     for (var item in items) {
       item.fadeIn(random.nextInt(500));
     }
+    counter = items.length;
+    state = 1;
+    addAll(items);
+    moveSky();
   }
 
-  void unloadLevel(int nextLevel) {
+  void goToLevel(int nextLevel) {
     if (animating == true) return;
     this.nextLevel = nextLevel;
     animating = true;
-    for (var item in items) {
-      item.fadeOut(random.nextInt(500));
-    }
     counter = items.length;
     state = 2;
     if (win) {
@@ -284,6 +284,9 @@ class MyWorld extends World with HasGameRef<MyGame> {
         ));
       }
       game.myCamera.viewport.addAll(stars);
+    }
+    for (var item in items) {
+      item.fadeOut(random.nextInt(500));
     }
   }
 
@@ -334,8 +337,8 @@ class MyWorld extends World with HasGameRef<MyGame> {
         win = true;
         game.menu();
       } else {
-        unloadLevel(level + 1);
         FlameAudio.play("key.ogg", volume: 0.1);
+        goToLevel(level + 1);
       }
       return;
     }
