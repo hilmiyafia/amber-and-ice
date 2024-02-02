@@ -75,8 +75,7 @@ class MyGame extends FlameGame with KeyboardEvents {
     myCamera.viewport.removeAll(myWorld.stars);
     myWorld.win = false;
     myWorld.stars.clear();
-    myWorld.nextLevel = 1;
-    myWorld.unloadLevel();
+    myWorld.unloadLevel(1);
     overlays.remove("Menu");
     overlays.add("Game");
   }
@@ -84,14 +83,12 @@ class MyGame extends FlameGame with KeyboardEvents {
   void restart() {
     FlameAudio.play("button.ogg");
     if (myWorld.zooming) return;
-    myWorld.nextLevel = myWorld.level;
-    myWorld.unloadLevel();
+    myWorld.unloadLevel(myWorld.level);
   }
 
   void menu() {
     FlameAudio.play("button.ogg");
-    myWorld.nextLevel = 0;
-    myWorld.unloadLevel();
+    myWorld.unloadLevel(0);
     overlays.remove("Game");
   }
 
@@ -209,7 +206,6 @@ class MyWorld extends World with HasGameRef<MyGame> {
         game.myCamera.viewfinder.position = Vector2(width * 32 - 32, height * 24 - 48);
       }
     }
-    moveSky();
     if (state == 1 && counter == 0) {
       state = 0;
       animating = false;
@@ -228,6 +224,7 @@ class MyWorld extends World with HasGameRef<MyGame> {
       level = nextLevel;
       loadLevel();
     }
+    moveSky();
   }
 
   void loadLevel() {
@@ -268,8 +265,9 @@ class MyWorld extends World with HasGameRef<MyGame> {
     }
   }
 
-  void unloadLevel() {
+  void unloadLevel(int nextLevel) {
     if (animating == true) return;
+    this.nextLevel = nextLevel;
     animating = true;
     for (var item in items) {
       item.fadeOut(random.nextInt(500));
@@ -294,47 +292,41 @@ class MyWorld extends World with HasGameRef<MyGame> {
     timer = 0.1;
     var x1 = player.X + dx, y1 = player.Y + dy;
     if (x1 < 0 || x1 >= width || y1 < 0 || y1 >= height) return;
-    if (getWallAt(x1, y1) != null) return;
-    if (getWaterAt(x1, y1, WaterType.liquid) != null) return;
-    var robot = getRobotAt(x1, y1);
-    if (robot != null) {
+    var wall1 = getWallAt(x1, y1);
+    if (wall1 != null) return;
+    var water1 = getWaterAt(x1, y1);
+    if (water1 != null && water1.type == WaterType.liquid) return;
+    var robot1 = getRobotAt(x1, y1);
+    if (robot1 != null) {
       var x2 = x1 + dx, y2 = y1 + dy;
-      if (finish.X == x2 && finish.Y == y2) return;
-      if (getRobotAt(x2, y2) != null) return;
-      var wall = getWallAt(x2, y2);
-      if (wall != null) {
-        if (wall.type != WallType.visible || robot.type != RobotType.amber) return;
-        walls.remove(wall);
-        remove(wall);
-        floors.add(Floor(wall.X, wall.Y, 1));
-        add(floors.last);
-        audioMelt.start(volume: 0.2);
-      }
-      var water = getWaterAt(x2, y2, WaterType.liquid);
-      if (robot.type != RobotType.ice) {
-        if (water != null) return;
-      } else if (water != null) {
-        water.type = WaterType.frozen;
-        audioFreeze.start(volume: 0.3);
-      }
       if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) return;
-      water = getWaterAt(x1, y1, WaterType.frozen);
-      if (water != null && robot.type == RobotType.amber) water.counter = 3;
-      robot..X = x2..Y = y2;
+      var wall2 = getWallAt(x2, y2);
+      if (wall2 != null) {
+        if (wall2.type == WallType.visible) {
+          if (robot1.type != RobotType.amber) return;
+          walls.remove(wall2);
+          remove(wall2);
+          floors.add(Floor(wall2.X, wall2.Y, 1));
+          add(floors.last);
+          audioMelt.start(volume: 0.2);
+        } else {
+          return;
+        }
+      }
+      var water2 = getWaterAt(x2, y2);
+      if (water2 != null) {
+        if (water2.type == WaterType.liquid) {
+          if (robot1.type != RobotType.ice) return;
+          water2.type = WaterType.frozen;
+          audioFreeze.start(volume: 0.3);
+        }
+      }
+      if (water1 != null && robot1.type == RobotType.amber) water1.counter = 2;
+      var robot2 = getRobotAt(x2, y2);
+      if (robot2 != null) return;
+      if (finish.X == x2 && finish.Y == y2) return;
+      robot1..X = x2..Y = y2;
     }
-    for (var water in waters) {
-      water.counter--;
-      if (water.type == WaterType.liquid || water.counter != 1) continue;
-      water.counter = 0;
-      water.type = WaterType.liquid;
-      audioMelt.start(volume: 0.2);
-    }
-    if (getWaterAt(x1, y1, WaterType.frozen) == null) {
-      audioMove.start(volume: 0.1);
-    } else {
-      audioIce.start(volume: 0.1);
-    }
-    player..X = x1..Y = y1;
     if (finish.X == x1 && finish.Y == y1) {
       if (level == maps.length - 1) {
         FlameAudio.bgm.stop();
@@ -342,14 +334,28 @@ class MyWorld extends World with HasGameRef<MyGame> {
         win = true;
         game.menu();
       } else {
-        nextLevel = level + 1;
-        unloadLevel();
+        unloadLevel(level + 1);
         FlameAudio.play("key.ogg", volume: 0.1);
       }
-    } else {
-      for (var item in items) {
-        if (item is UndoableItem) item.record();
+      return;
+    }
+    player..X = x1..Y = y1;
+    for (var water in waters) {
+      if (water.counter > 0) {
+        water.counter--;
+        if (water.counter == 0) {
+          water.type = WaterType.liquid;
+          audioMelt.start(volume: 0.2);
+        }
       }
+    }
+    if (water1 == null) {
+      audioMove.start(volume: 0.1);
+    } else {
+      audioIce.start(volume: 0.1);
+    }
+    for (var item in items) {
+      if (item is UndoableItem) item.record();
     }
   }
 
@@ -373,9 +379,9 @@ class MyWorld extends World with HasGameRef<MyGame> {
     return withPlayer && player.X == x && player.Y == y ? player : null;
   }
 
-  Water? getWaterAt(int x, int y, WaterType type) {
+  Water? getWaterAt(int x, int y) {
     for (var water in waters) {
-      if (water.X == x && water.Y == y && water.type == type) return water;
+      if (water.X == x && water.Y == y) return water;
     }
     return null;
   }
